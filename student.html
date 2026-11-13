@@ -6,6 +6,7 @@
     <title>인생 뽑기 카드 - 학생용</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 안정적인 MQTT 라이브러리 CDN -->
     <script src="[suspicious link removed]"></script>
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
@@ -23,7 +24,7 @@
         <div class="text-center">
             <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">도덕 5학년 - 공동체를 정의롭게</span>
             <h1 class="text-2xl font-extrabold text-gray-800 mt-2">🎲 인생 뽑기 카드</h1>
-            <p id="netStatus" class="text-[11px] text-emerald-600 font-bold mt-1">🟢 실시간 연결됨</p>
+            <p id="netStatus" class="text-[11px] text-emerald-600 font-bold mt-1">🟢 실시간 연결 준비 완료</p>
         </div>
 
         <div id="studentLockBanner" class="hidden bg-amber-500 text-white p-3 rounded-2xl text-center font-bold text-xs shadow-md animate-pulse">
@@ -178,59 +179,81 @@
         };
 
         const TOPIC = 'moral_class_5_1_school_2026';
-        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        let client = null;
+
+        // MQTT 안전 초기화
+        try {
+            if (typeof mqtt !== 'undefined') {
+                client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+                client.on('connect', () => {
+                    const statusEl = document.getElementById('netStatus');
+                    if(statusEl) statusEl.innerText = "🟢 실시간 연결 완료";
+                    client.subscribe(TOPIC);
+                    if(studentName) sendStatus('재접속/입장');
+                });
+
+                client.on('message', (topic, message) => {
+                    try {
+                        const e = JSON.parse(message.toString());
+                        if(e.type === 'LOCK_TOGGLE') {
+                            isInputAllowed = e.isAllowed;
+                            updateLockUI();
+                        }
+                        if(e.type === 'CHANGE_LAW') {
+                            currentLawIndex = e.index;
+                            updateLawUI();
+                            vote1Val = ""; vote2Val = "";
+                            resetCardFlipState();
+                            document.getElementById('stStep1').classList.remove('hidden');
+                            document.getElementById('stStep2').classList.add('hidden');
+                            document.getElementById('stStep3').classList.add('hidden');
+                            document.getElementById('stStepSubComplete').classList.add('hidden');
+                            sendStatus('1차투표 대기');
+                        }
+                    } catch(err){}
+                });
+            }
+        } catch(e) { console.warn("MQTT Init Error:", e); }
 
         let currentLawIndex = 0;
-        let studentName = localStorage.getItem('m_student_name') || "";
+        let studentName = "";
+        try { studentName = localStorage.getItem('m_student_name') || ""; } catch(e){}
         let vote1Val = "", vote2Val = "", drawnCategory = "", drawnCardVal = "";
-        let myDrawnCards = JSON.parse(localStorage.getItem('m_drawn_cards') || '{}');
+        let myDrawnCards = {};
+        try { myDrawnCards = JSON.parse(localStorage.getItem('m_drawn_cards') || '{}'); } catch(e){}
         let isInputAllowed = true;
-
-        client.on('connect', () => {
-            document.getElementById('netStatus').innerText = "🟢 실시간 연결 완료";
-            client.subscribe(TOPIC);
-            if(studentName) sendStatus('재접속/입장');
-        });
-
-        client.on('message', (topic, message) => {
-            try {
-                const e = JSON.parse(message.toString());
-                if(e.type === 'LOCK_TOGGLE') {
-                    isInputAllowed = e.isAllowed;
-                    updateLockUI();
-                }
-                if(e.type === 'CHANGE_LAW') {
-                    currentLawIndex = e.index;
-                    updateLawUI();
-                    vote1Val = ""; vote2Val = "";
-                    resetCardFlipState();
-                    document.getElementById('stStep1').classList.remove('hidden');
-                    document.getElementById('stStep2').classList.add('hidden');
-                    document.getElementById('stStep3').classList.add('hidden');
-                    document.getElementById('stStepSubComplete').classList.add('hidden');
-                    sendStatus('1차투표 대기');
-                }
-            } catch(err){}
-        });
 
         function updateLawUI() {
             const currentLaw = laws[currentLawIndex];
-            document.getElementById('lawProgressTag').innerText = `상황 ${currentLawIndex + 1} / ${laws.length}`;
-            document.getElementById('lawTitleText').innerText = currentLaw.title;
-            document.getElementById('lawDetailText').innerText = currentLaw.detail;
-            document.getElementById('matchedCategoryBadge').innerText = `🎯 매칭 카테고리: [${currentLaw.category}]`;
+            const pTag = document.getElementById('lawProgressTag');
+            const tText = document.getElementById('lawTitleText');
+            const dText = document.getElementById('lawDetailText');
+            const cBadge = document.getElementById('matchedCategoryBadge');
+            
+            if(pTag) pTag.innerText = `상황 ${currentLawIndex + 1} / ${laws.length}`;
+            if(tText) tText.innerText = currentLaw.title;
+            if(dText) dText.innerText = currentLaw.detail;
+            if(cBadge) cBadge.innerText = `🎯 매칭 카테고리: [${currentLaw.category}]`;
         }
 
+        // 🌟 [수업 참여하기] 버튼 클릭 시 UI 무조건 우선 전환
         function startStudentSession() {
             if(!isInputAllowed) { alert('현재 선생님이 입력을 잠가두었습니다.'); return; }
-            const val = document.getElementById('studentNameInput').value.trim();
+            const inputEl = document.getElementById('studentNameInput');
+            const val = inputEl ? inputEl.value.trim() : "";
             if(!val) { alert('이름을 입력해주세요!'); return; }
+            
             studentName = val;
-            localStorage.setItem('m_student_name', studentName);
-            document.getElementById('stStep0').classList.add('hidden');
-            document.getElementById('stMainContent').classList.remove('hidden');
-            updateLawUI();
-            sendStatus('1차투표 대기');
+            try { localStorage.setItem('m_student_name', studentName); } catch(e){}
+
+            // UI 화면 전환 (최우선)
+            const step0 = document.getElementById('stStep0');
+            const mainContent = document.getElementById('stMainContent');
+            if(step0) step0.classList.add('hidden');
+            if(mainContent) mainContent.classList.remove('hidden');
+
+            try { updateLawUI(); } catch(e){}
+            try { sendStatus('1차투표 대기'); } catch(e){}
         }
 
         function vote1(v) {
@@ -248,7 +271,7 @@
             const cardList = cardDatabase[drawnCategory];
             drawnCardVal = cardList[Math.floor(Math.random() * cardList.length)];
             myDrawnCards[drawnCategory] = drawnCardVal;
-            localStorage.setItem('m_drawn_cards', JSON.stringify(myDrawnCards));
+            try { localStorage.setItem('m_drawn_cards', JSON.stringify(myDrawnCards)); } catch(e){}
 
             document.getElementById('card3d').classList.add('rotate-y-180');
             document.getElementById('cardCategoryTag').innerText = drawnCategory;
@@ -298,7 +321,7 @@
                 vote2: vote2Val,
                 changed: vote1Val !== vote2Val
             };
-            client.publish(TOPIC, JSON.stringify(payload));
+            publishSafe(payload);
         }
 
         function sendStatus(stepStatus) {
@@ -311,17 +334,29 @@
                 myDrawnCards: myDrawnCards,
                 time: new Date().toLocaleTimeString()
             };
-            client.publish(TOPIC, JSON.stringify(payload));
+            publishSafe(payload);
+        }
+
+        function publishSafe(payload) {
+            try {
+                if(client && client.connected) {
+                    client.publish(TOPIC, JSON.stringify(payload));
+                }
+            } catch(e) { console.warn("Publish error:", e); }
         }
 
         function resetCardFlipState() {
             const card3d = document.getElementById('card3d');
-            card3d.classList.remove('rotate-y-180');
-            document.getElementById('cardCategoryTag').innerText = "카테고리";
-            document.getElementById('cardResultText').innerText = "결과";
+            if(card3d) card3d.classList.remove('rotate-y-180');
+            const catTag = document.getElementById('cardCategoryTag');
+            if(catTag) catTag.innerText = "카테고리";
+            const resText = document.getElementById('cardResultText');
+            if(resText) resText.innerText = "결과";
             const btnGo3 = document.getElementById('btnGoStep3');
-            btnGo3.disabled = true;
-            btnGo3.className = "w-full py-3 bg-gray-300 text-gray-500 font-bold rounded-xl text-sm";
+            if(btnGo3) {
+                btnGo3.disabled = true;
+                btnGo3.className = "w-full py-3 bg-gray-300 text-gray-500 font-bold rounded-xl text-sm";
+            }
         }
 
         function openFinalReflectionView() {
@@ -330,12 +365,14 @@
 
             const container = document.getElementById('myCombinedCardContainer');
             const cats = Object.keys(cardDatabase);
-            container.innerHTML = cats.map(c => `
-                <div class="bg-white p-2.5 rounded-xl border text-center">
-                    <span class="text-[10px] text-indigo-500">${c}</span>
-                    <p class="text-xs font-black text-gray-800 mt-0.5">${myDrawnCards[c] || '미뽑기'}</p>
-                </div>
-            `).join('');
+            if(container) {
+                container.innerHTML = cats.map(c => `
+                    <div class="bg-white p-2.5 rounded-xl border text-center">
+                        <span class="text-[10px] text-indigo-500">${c}</span>
+                        <p class="text-xs font-black text-gray-800 mt-0.5">${myDrawnCards[c] || '미뽑기'}</p>
+                    </div>
+                `).join('');
+            }
             sendStatus('최종 소감 작성 중');
         }
 
@@ -358,7 +395,7 @@
                 combinedCards: { ...myDrawnCards },
                 ansChar, q1, q2, q3
             };
-            client.publish(TOPIC, JSON.stringify(payload));
+            publishSafe(payload);
             sendStatus('최종 소감 제출 완료');
 
             alert('선생님께 최종 소감이 제출되었습니다!');
@@ -369,17 +406,18 @@
             const banner = document.getElementById('studentLockBanner');
             const actionBtns = document.querySelectorAll('.st-btn');
             if(isInputAllowed) {
-                banner.classList.add('hidden');
+                if(banner) banner.classList.add('hidden');
                 actionBtns.forEach(b => b.disabled = false);
             } else {
-                banner.classList.remove('hidden');
+                if(banner) banner.classList.remove('hidden');
                 actionBtns.forEach(b => b.disabled = true);
             }
         }
 
         window.onload = () => {
             if(studentName) {
-                document.getElementById('studentNameInput').value = studentName;
+                const inputEl = document.getElementById('studentNameInput');
+                if(inputEl) inputEl.value = studentName;
                 startStudentSession();
             }
         };
