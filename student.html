@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>인생 뽑기 카드 - 학생용</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="[suspicious link removed]"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background: #f0f4f8; min-height: 100vh; }
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="p-3 sm:p-6 flex items-center justify-center min-h-screen">
+
+    <div class="max-w-xl w-full glass-panel rounded-3xl p-6 shadow-xl space-y-6">
+        <div class="text-center">
+            <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">도덕 5학년 - 공동체를 정의롭게</span>
+            <h1 class="text-2xl font-extrabold text-gray-800 mt-2">🎲 인생 뽑기 카드</h1>
+            <p id="netStatus" class="text-[11px] text-emerald-600 font-bold mt-1">🟢 실시간 연결됨</p>
+        </div>
+
+        <div id="studentLockBanner" class="hidden bg-amber-500 text-white p-3 rounded-2xl text-center font-bold text-xs shadow-md animate-pulse">
+            🔒 현재 선생님이 입력을 잠가두었습니다. 안내를 기다려주세요!
+        </div>
+
+        <!-- 0단계: 학생 이름 입력 -->
+        <div id="stStep0" class="space-y-4 text-center py-4">
+            <i class="fa-solid fa-user-gear text-5xl text-indigo-500"></i>
+            <h2 class="text-xl font-bold text-gray-800">학생 이름을 입력하세요</h2>
+            <input type="text" id="studentNameInput" placeholder="예: 10101 김철수" class="w-full p-4 border-2 border-indigo-200 rounded-xl text-center text-base font-bold focus:outline-none focus:border-indigo-500">
+            <button id="btnStartSession" onclick="startStudentSession()" class="st-btn w-full py-4 bg-indigo-600 text-white font-extrabold rounded-xl text-base shadow-lg hover:bg-indigo-700">수업 참여하기 🚀</button>
+        </div>
+
+        <!-- 메인 응답 진행 -->
+        <div id="stMainContent" class="hidden space-y-6">
+            <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl space-y-2 text-center">
+                <span id="lawProgressTag" class="text-xs font-bold text-indigo-600">상황 1 / 6</span>
+                <h3 id="lawTitleText" class="text-base font-black text-gray-800"></h3>
+                <p id="lawDetailText" class="text-xs font-semibold text-gray-700 leading-relaxed"></p>
+                <span id="matchedCategoryBadge" class="inline-block px-3 py-1 bg-indigo-200 text-indigo-800 text-xs font-extrabold rounded-full">🎯 매칭 카테고리: -</span>
+            </div>
+
+            <!-- 1단계: 1차 투표 -->
+            <div id="stStep1" class="space-y-4 text-center">
+                <p class="text-xs font-bold text-gray-600">[1차 투표] 현재 자신의 입장에서 선택하세요.</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="vote1('찬성')" class="st-btn py-3.5 bg-emerald-500 text-white font-black rounded-2xl shadow-md">👍 찬성</button>
+                    <button onclick="vote1('반대')" class="st-btn py-3.5 bg-rose-500 text-white font-black rounded-2xl shadow-md">👎 반대</button>
+                </div>
+            </div>
+
+            <!-- 2단계: 3D 카드 뽑기 -->
+            <div id="stStep2" class="hidden space-y-4 text-center">
+                <p class="text-xs font-bold text-gray-600">법안에 관련된 인생 카드를 터치하여 뽑으세요!</p>
+                <div class="perspective-1000 flex justify-center my-2">
+                    <div id="card3d" onclick="drawCard()" class="w-52 h-64 relative transform-style-3d cursor-pointer">
+                        <div class="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-5 text-white flex flex-col justify-between items-center shadow-xl backface-hidden border-4 border-white/20">
+                            <span class="text-xs font-bold">MATCHED CARD</span>
+                            <i class="fa-solid fa-dice-d20 text-4xl animate-bounce text-yellow-300"></i>
+                            <p class="font-bold text-sm">터치해서 카드 뽑기!</p>
+                        </div>
+                        <div class="absolute inset-0 w-full h-full bg-white rounded-3xl p-5 text-gray-800 flex flex-col justify-between items-center shadow-xl backface-hidden rotate-y-180 border-4 border-indigo-400">
+                            <span id="cardCategoryTag" class="text-[11px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">카테고리</span>
+                            <h4 id="cardResultText" class="text-lg font-black text-indigo-950 my-auto">결과</h4>
+                            <p class="text-[10px] text-gray-400">💡 이 신분으로 생각해보세요!</p>
+                        </div>
+                    </div>
+                </div>
+                <button id="btnGoStep3" onclick="goStep3()" disabled class="w-full py-3 bg-gray-300 text-gray-500 font-bold rounded-xl text-sm">다음 단계 (2차 투표)</button>
+            </div>
+
+            <!-- 3단계: 2차 투표 -->
+            <div id="stStep3" class="hidden space-y-4 text-center">
+                <div class="bg-indigo-600 text-white p-3.5 rounded-2xl shadow-md">
+                    <span class="text-[11px] text-indigo-200">나의 맞춤 캐릭터</span>
+                    <p id="assignedPersona" class="text-base font-black mt-0.5">-</p>
+                </div>
+                <p class="text-xs font-bold text-gray-600">[2차 투표] 이 캐릭터의 입장에서 선택하세요.</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="vote2('찬성')" class="st-btn py-3.5 bg-emerald-500 text-white font-black rounded-2xl shadow-md">👍 찬성</button>
+                    <button onclick="vote2('반대')" class="st-btn py-3.5 bg-rose-500 text-white font-black rounded-2xl shadow-md">👎 반대</button>
+                </div>
+            </div>
+
+            <div id="stStepSubComplete" class="hidden space-y-4 text-center py-4">
+                <i class="fa-solid fa-circle-check text-4xl text-emerald-500"></i>
+                <h3 class="text-base font-bold text-gray-800">이 법안에 대한 투표가 완료되었습니다!</h3>
+                <p id="msgWaitNextLaw" class="text-xs font-semibold text-indigo-600 bg-indigo-50 p-3 rounded-xl">
+                    선생님의 다음 법안 설명 및 전환을 기다려주세요.
+                </p>
+                <button id="btnGoFinalReflection" onclick="openFinalReflectionView()" class="hidden w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-white font-extrabold rounded-2xl text-base shadow-xl animate-bounce">
+                    📝 나의 종합 캐릭터 & 최종 소감 작성하기
+                </button>
+            </div>
+        </div>
+
+        <!-- 최종 성찰 소감 작성 화면 -->
+        <div id="stFinalReflectionView" class="hidden space-y-5">
+            <div class="text-center">
+                <span class="text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full">최종 도덕적 성찰 단계</span>
+                <h2 class="text-xl font-black text-gray-800 mt-1.5">🃏 내가 뽑은 모든 인생 카드 조합</h2>
+            </div>
+
+            <div id="myCombinedCardContainer" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 bg-indigo-50 border border-indigo-100 rounded-2xl text-xs font-bold text-indigo-900"></div>
+
+            <div class="bg-amber-50/80 border border-amber-200 p-3.5 rounded-2xl space-y-2">
+                <div class="flex items-center space-x-1.5 text-amber-800 font-extrabold text-xs">
+                    <i class="fa-solid fa-key"></i>
+                    <span>도덕 성찰 낱말 보기 (답안 작성 시 참고하세요)</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5 text-[11px]">
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">약자 보호</span>
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">복지 제도</span>
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">세금</span>
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">무지의 베일</span>
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">역지사지</span>
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">공감</span>
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">인간다운 생활</span>
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">차별 없는 세상</span>
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">공평</span>
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">불편함/걱정</span>
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">사회적 지원</span>
+                    <span class="px-2 py-0.5 bg-white border border-amber-300 text-amber-900 rounded-md font-bold">상호 존중</span>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 border rounded-2xl space-y-2">
+                <label class="block font-extrabold text-gray-800 text-xs leading-normal">
+                    ❓ [PPT 질문] 자신이 뽑은 모든 카드를 조합한 캐릭터가 진짜 나라면 어떤 삶을 살 것 같나요?
+                </label>
+                <textarea id="ansLifeCharacter" rows="3" class="w-full p-2.5 border rounded-xl text-xs focus:outline-none focus:border-indigo-500" placeholder="위 낱말 보기를 참고하여 작성하세요."></textarea>
+            </div>
+
+            <div class="bg-white p-4 border rounded-2xl space-y-3">
+                <h3 class="font-extrabold text-indigo-900 text-xs border-b pb-1.5">💭 정의로운 공동체를 위한 성찰 질문 3가지</h3>
+                <div class="space-y-1">
+                    <label class="block font-bold text-[11px] text-gray-700 leading-normal">1. 약자 보호: 내가 사회에서 불리한 위치에 처하더라도 차별받지 않으려면 어떤 복지나 세금 제도가 필요할까요?</label>
+                    <textarea id="ansQuestion1" rows="2" class="w-full p-2 border rounded-xl text-xs focus:outline-none focus:border-indigo-500" placeholder="필요하다고 생각하는 제도를 서술해 보세요."></textarea>
+                </div>
+                <div class="space-y-1">
+                    <label class="block font-bold text-[11px] text-gray-700 leading-normal">2. 공감과 이해: 나와 다른 처지에 있는 사람들의 입장을 이해하는 것이 왜 정의로운 사회에 중요할까요?</label>
+                    <textarea id="ansQuestion2" rows="2" class="w-full p-2 border rounded-xl text-xs focus:outline-none focus:border-indigo-500" placeholder="느낀 점을 바탕으로 작성해 보세요."></textarea>
+                </div>
+                <div class="space-y-1">
+                    <label class="block font-bold text-[11px] text-gray-700 leading-normal">3. 무지의 베일: 카드를 뽑기 전(내 신분을 모르는 상태)이었다면 모두가 합의할 수 있는 공평한 원칙은 무엇일까요?</label>
+                    <textarea id="ansQuestion3" rows="2" class="w-full p-2 border rounded-xl text-xs focus:outline-none focus:border-indigo-500" placeholder="공평한 원칙을 적어보세요."></textarea>
+                </div>
+            </div>
+
+            <button onclick="submitFinalReflection()" class="st-btn w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl text-base shadow-xl">📤 최종 소감 선생님께 제출하기</button>
+        </div>
+    </div>
+
+    <script>
+        const laws = [
+            { title: "상황 1: 노인 승차 & 10대 지원금", category: "연령 및 성별", detail: "60세 이상 어르신들의 버스·지하철 무료 탑승 혜택을 없애고, 대신 10대 학생들에게 매달 5만 원의 지원금을 준다." },
+            { title: "상황 2: 소득 20% 단일 세금", category: "소득", detail: "모든 사람은 자신이 번 돈의 20%를 무조건 세금으로 내야 한다." },
+            { title: "상황 3: 외국인 학생 학비·급식비", category: "국적", detail: "대한민국의 학교에 다니는 외국 국적의 학생들은 학비와 급식비로 매달 20만 원을 내야 한다." },
+            { title: "상황 4: 급식 고기 메뉴 매일 포함", category: "종교", detail: "급식 메뉴에는 학생들이 좋아하는 소고기 또는 돼지고기 요리가 매일 들어가야 한다." },
+            { title: "상황 5: 5인 이상 다가족 아파트 제공", category: "가족 구성", detail: "5인 이상의 가족이 함께 사는 경우 국가에서 무료로 새로 지은 아파트를 제공한다." },
+            { title: "상황 6: 의료비 국가 전액 부담", category: "신체 및 건강", detail: "매년 연봉의 10%를 내면 건강이 좋지 않아졌을 때 국가가 모든 치료비를 대신 부담한다." }
+        ];
+
+        const cardDatabase = {
+            "연령 및 성별": ["남자 12세", "여자 12세", "남자 10세", "여자 11세", "남자 15세", "여자 17세", "남자 19세", "여자 22세", "남자 28세", "여자 35세", "남자 42세", "여자 49세", "남자 56세", "여자 63세", "남자 71세", "여자 78세", "남자 86세", "여자 92세", "남자 97세", "여자 101세"],
+            "소득": ["연봉 0원 (무직/학생)", "연봉 300만원", "연봉 800만원", "연봉 1,200만원", "연봉 1,800만원", "연봉 2,400만원", "연봉 3,000만원", "연봉 3,800만원", "연봉 4,500만원", "연봉 5,500만원", "연봉 7,000만원", "연봉 9,000만원", "연봉 1억 2천만원", "연봉 2억원", "연봉 3억 5천만원", "연봉 5억원", "연봉 10억원", "연봉 50억원", "연봉 100억원", "연봉 500억원"],
+            "국적": ["대한민국", "일본", "중국", "인도네시아", "베트남", "필리핀", "미국", "캐나다", "영국", "프랑스", "독일", "스페인", "이집트", "나이지리아", "남아프리카공화국", "브라질", "아르헨티나", "호주", "인도", "사우디아라비아"],
+            "종교": ["무교", "천주교", "기독교", "불교 (육식 금지)", "이슬람교 (돼지고기 금지)", "힌두교 (소고기 금지)", "유대교 (코셔 식단)", "원불교", "유교", "비건 (엄격한 채식주의자)", "오보 베지터리언 (계란 허용)", "락토 베지터리언 (유제품 허용)", "페스코 베지터리언 (해산물 허용)", "유제품 알레르기 보유자", "견과류/땅콩 알레르기 보유자", "밀가루(글루텐) 알레르기 보유자", "갑각류 알레르기 보유자", "신토불이 음식 선호자", "자연식주의자", "과일주의자"],
+            "가족 구성": ["나 (1인 가구)", "아버지, 나 (2인 한부모)", "어머니, 나 (2인 한부모)", "할머니, 나 (2인 조손가정)", "아버지, 어머니, 나 (3인 가구)", "어머니, 나, 동생 (3인 가구)", "아버지, 어머니, 나, 동생 (4인 가구)", "아버지, 어머니, 나, 형, 동생 (5인 다자녀)", "할아버지, 할머니, 아버지, 어머니, 나 (5인 3세대)", "할머니, 아버지, 어머니, 나, 동생, 막내 (6인 대가족)", "다문화 가정 (7인 대가족)", "소년소녀 가장 (형제 2명)", "자취하는 청년 1인 가구", "독거 어르신 1인 가구", "입양 가정 (4인)", "위탁 가정 (3인)", "신혼부부 (2인)", "삼남매 가정 (5인)", "사남매 가정 (6인)", "할아버지, 나 (2인)"],
+            "신체 및 건강": ["키 180cm 매우 건강함", "심한 저체중 및 영양부족", "두 다리가 불편함 (지체장애 휠체어 이용)", "시각장애 (점자/안내견 필요)", "청각장애 (수어 필요)", "소아당뇨 질환 보유", "심한 천식 환자", "희귀난치성 질환 보유", "30대 암 발병 가능성 50%", "만성 피로 및 허리디스크", "아토피 피부염 심함", "고혈압 및 성인병 위험", "신장 질환 (투석 필요)", "심장 질환 보유", "관절염으로 걷기 힘듦", "희귀 혈액형 (RH-)", "면역력 매우 약함", "색맹/색약", "언어장애", "건강 상태 최상 (운동선수)"]
+        };
+
+        const TOPIC = 'moral_class_5_1_school_2026';
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+
+        let currentLawIndex = 0;
+        let studentName = localStorage.getItem('m_student_name') || "";
+        let vote1Val = "", vote2Val = "", drawnCategory = "", drawnCardVal = "";
+        let myDrawnCards = JSON.parse(localStorage.getItem('m_drawn_cards') || '{}');
+        let isInputAllowed = true;
+
+        client.on('connect', () => {
+            document.getElementById('netStatus').innerText = "🟢 실시간 연결 완료";
+            client.subscribe(TOPIC);
+            if(studentName) sendStatus('재접속/입장');
+        });
+
+        client.on('message', (topic, message) => {
+            try {
+                const e = JSON.parse(message.toString());
+                if(e.type === 'LOCK_TOGGLE') {
+                    isInputAllowed = e.isAllowed;
+                    updateLockUI();
+                }
+                if(e.type === 'CHANGE_LAW') {
+                    currentLawIndex = e.index;
+                    updateLawUI();
+                    vote1Val = ""; vote2Val = "";
+                    resetCardFlipState();
+                    document.getElementById('stStep1').classList.remove('hidden');
+                    document.getElementById('stStep2').classList.add('hidden');
+                    document.getElementById('stStep3').classList.add('hidden');
+                    document.getElementById('stStepSubComplete').classList.add('hidden');
+                    sendStatus('1차투표 대기');
+                }
+            } catch(err){}
+        });
+
+        function updateLawUI() {
+            const currentLaw = laws[currentLawIndex];
+            document.getElementById('lawProgressTag').innerText = `상황 ${currentLawIndex + 1} / ${laws.length}`;
+            document.getElementById('lawTitleText').innerText = currentLaw.title;
+            document.getElementById('lawDetailText').innerText = currentLaw.detail;
+            document.getElementById('matchedCategoryBadge').innerText = `🎯 매칭 카테고리: [${currentLaw.category}]`;
+        }
+
+        function startStudentSession() {
+            if(!isInputAllowed) { alert('현재 선생님이 입력을 잠가두었습니다.'); return; }
+            const val = document.getElementById('studentNameInput').value.trim();
+            if(!val) { alert('이름을 입력해주세요!'); return; }
+            studentName = val;
+            localStorage.setItem('m_student_name', studentName);
+            document.getElementById('stStep0').classList.add('hidden');
+            document.getElementById('stMainContent').classList.remove('hidden');
+            updateLawUI();
+            sendStatus('1차투표 대기');
+        }
+
+        function vote1(v) {
+            if(!isInputAllowed) { alert('선생님이 입력을 잠가둔 상태입니다.'); return; }
+            vote1Val = v;
+            resetCardFlipState();
+            document.getElementById('stStep1').classList.add('hidden');
+            document.getElementById('stStep2').classList.remove('hidden');
+            sendStatus('카드뽑기 대기');
+        }
+
+        function drawCard() {
+            if(!isInputAllowed) { alert('선생님이 입력을 잠가둔 상태입니다.'); return; }
+            drawnCategory = laws[currentLawIndex].category;
+            const cardList = cardDatabase[drawnCategory];
+            drawnCardVal = cardList[Math.floor(Math.random() * cardList.length)];
+            myDrawnCards[drawnCategory] = drawnCardVal;
+            localStorage.setItem('m_drawn_cards', JSON.stringify(myDrawnCards));
+
+            document.getElementById('card3d').classList.add('rotate-y-180');
+            document.getElementById('cardCategoryTag').innerText = drawnCategory;
+            document.getElementById('cardResultText').innerText = drawnCardVal;
+
+            const btn = document.getElementById('btnGoStep3');
+            btn.disabled = !isInputAllowed;
+            btn.className = "w-full py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md cursor-pointer text-sm";
+            sendStatus('2차투표 준비완료');
+        }
+
+        function goStep3() {
+            if(!isInputAllowed) return;
+            document.getElementById('stStep2').classList.add('hidden');
+            document.getElementById('stStep3').classList.remove('hidden');
+            document.getElementById('assignedPersona').innerText = `[${drawnCategory}] ${drawnCardVal}`;
+            sendStatus('2차투표 대기');
+        }
+
+        function vote2(v) {
+            if(!isInputAllowed) { alert('선생님이 입력을 잠가둔 상태입니다.'); return; }
+            vote2Val = v;
+            document.getElementById('stStep3').classList.add('hidden');
+            document.getElementById('stStepSubComplete').classList.remove('hidden');
+
+            const btnFinal = document.getElementById('btnGoFinalReflection');
+            const msgWait = document.getElementById('msgWaitNextLaw');
+            if(currentLawIndex === laws.length - 1) {
+                btnFinal.classList.remove('hidden');
+                msgWait.classList.add('hidden');
+                sendStatus('상황6 완료/최종소감 진입가능');
+            } else {
+                btnFinal.classList.add('hidden');
+                msgWait.classList.remove('hidden');
+                sendStatus(`상황 ${currentLawIndex+1} 투표완료`);
+            }
+
+            const payload = {
+                type: 'NEW_SUBMISSION',
+                id: Date.now(),
+                name: studentName,
+                lawIndex: currentLawIndex,
+                lawTitle: laws[currentLawIndex].title,
+                vote1: vote1Val,
+                category: drawnCategory,
+                card: drawnCardVal,
+                vote2: vote2Val,
+                changed: vote1Val !== vote2Val
+            };
+            client.publish(TOPIC, JSON.stringify(payload));
+        }
+
+        function sendStatus(stepStatus) {
+            if(!studentName) return;
+            const payload = {
+                type: 'STUDENT_STATUS',
+                name: studentName,
+                lawIndex: currentLawIndex,
+                stepStatus: stepStatus,
+                myDrawnCards: myDrawnCards,
+                time: new Date().toLocaleTimeString()
+            };
+            client.publish(TOPIC, JSON.stringify(payload));
+        }
+
+        function resetCardFlipState() {
+            const card3d = document.getElementById('card3d');
+            card3d.classList.remove('rotate-y-180');
+            document.getElementById('cardCategoryTag').innerText = "카테고리";
+            document.getElementById('cardResultText').innerText = "결과";
+            const btnGo3 = document.getElementById('btnGoStep3');
+            btnGo3.disabled = true;
+            btnGo3.className = "w-full py-3 bg-gray-300 text-gray-500 font-bold rounded-xl text-sm";
+        }
+
+        function openFinalReflectionView() {
+            document.getElementById('stMainContent').classList.add('hidden');
+            document.getElementById('stFinalReflectionView').classList.remove('hidden');
+
+            const container = document.getElementById('myCombinedCardContainer');
+            const cats = Object.keys(cardDatabase);
+            container.innerHTML = cats.map(c => `
+                <div class="bg-white p-2.5 rounded-xl border text-center">
+                    <span class="text-[10px] text-indigo-500">${c}</span>
+                    <p class="text-xs font-black text-gray-800 mt-0.5">${myDrawnCards[c] || '미뽑기'}</p>
+                </div>
+            `).join('');
+            sendStatus('최종 소감 작성 중');
+        }
+
+        function submitFinalReflection() {
+            if(!isInputAllowed) { alert('선생님이 입력을 잠가둔 상태입니다.'); return; }
+            const ansChar = document.getElementById('ansLifeCharacter').value.trim();
+            const q1 = document.getElementById('ansQuestion1').value.trim();
+            const q2 = document.getElementById('ansQuestion2').value.trim();
+            const q3 = document.getElementById('ansQuestion3').value.trim();
+
+            if(!ansChar || !q1 || !q2 || !q3) {
+                alert('모든 질문에 대한 소감을 작성해주세요!');
+                return;
+            }
+
+            const payload = {
+                type: 'NEW_REFLECTION',
+                id: Date.now(),
+                name: studentName,
+                combinedCards: { ...myDrawnCards },
+                ansChar, q1, q2, q3
+            };
+            client.publish(TOPIC, JSON.stringify(payload));
+            sendStatus('최종 소감 제출 완료');
+
+            alert('선생님께 최종 소감이 제출되었습니다!');
+            location.reload();
+        }
+
+        function updateLockUI() {
+            const banner = document.getElementById('studentLockBanner');
+            const actionBtns = document.querySelectorAll('.st-btn');
+            if(isInputAllowed) {
+                banner.classList.add('hidden');
+                actionBtns.forEach(b => b.disabled = false);
+            } else {
+                banner.classList.remove('hidden');
+                actionBtns.forEach(b => b.disabled = true);
+            }
+        }
+
+        window.onload = () => {
+            if(studentName) {
+                document.getElementById('studentNameInput').value = studentName;
+                startStudentSession();
+            }
+        };
+    </script>
+</body>
+</html>
